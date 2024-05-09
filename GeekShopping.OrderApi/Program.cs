@@ -1,6 +1,6 @@
-using GeekShopping.CartAPI.Model.Context;
-using GeekShopping.CartAPI.RabbitMQSender;
-using GeekShopping.CartAPI.Repository;
+using GeekShopping.OrderApi.MessageConsumer;
+using GeekShopping.OrderApi.Model.Context;
+using GeekShopping.OrderApi.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -8,7 +8,6 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddSingleton<IRabbitMQMessageSender, RabbitMQMessageSender>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -21,7 +20,7 @@ builder.Services.AddDbContext<SqlServerContext>(opt =>
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "GeekShopping.CartAPI", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "GeekShopping.OrderAPI", Version = "v1" });
     c.EnableAnnotations();
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -67,13 +66,13 @@ builder.Services.AddAuthorization(opt =>
     });
 });
 
+var builderServices = new DbContextOptionsBuilder<SqlServerContext>();
+builderServices.UseSqlServer("name=ConnectionStrings:ConnectionString");
 
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+builder.Services.AddSingleton(new OrderRepository(builderServices.Options));
 
-builder.Services.AddScoped<ICartRepository, CartRepository>();
-builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddHostedService<RabbitMQCheckoutConsumer>();
 
-builder.Services.AddHttpClient<ICouponRepository, CouponRepository>(s => s.BaseAddress = new Uri(builder.Configuration["ServiceUrls:CouponAPI"]));
 
 var app = builder.Build();
 
