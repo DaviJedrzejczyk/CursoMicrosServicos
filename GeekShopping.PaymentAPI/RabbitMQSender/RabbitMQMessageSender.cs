@@ -13,7 +13,9 @@ namespace GeekShopping.PaymentAPI.RabbitMQSender
         private readonly string _username;
         private IConnection _connection;
 
-        private const string ExchangeName = "FanoutPayementUpdateExchange";
+        private const string ExchangeName = "DirectPayementUpdateExchange";
+        private const string PayementEmailUpdateQueueName = "PayementEmailUpdateQueueName";
+        private const string PayementOrderUpdateQueueName = "PayementOrderUpdateQueueName";
 
         public RabbitMQMessageSender()
         {
@@ -30,10 +32,20 @@ namespace GeekShopping.PaymentAPI.RabbitMQSender
                 {
                     using var channel = _connection.CreateModel();
 
-                    channel.ExchangeDeclare(ExchangeName, ExchangeType.Fanout, durable: false);
+                    //channel.ExchangeDeclare(ExchangeName, ExchangeType.Fanout, durable: false);
+                    //Caso queiram testar o Fanout descomente essa linha e muda o valor de Exchange name para FanoutPayementUpdateExchange
+                    
+                    channel.ExchangeDeclare(ExchangeName, ExchangeType.Direct, durable: false);
+
+                    channel.QueueDeclare(PayementEmailUpdateQueueName, false, false, false, null);
+                    channel.QueueDeclare(PayementOrderUpdateQueueName, false, false, false, null);
+
+                    channel.QueueBind(PayementEmailUpdateQueueName, ExchangeName, "PayementEmail");
+                    channel.QueueBind(PayementOrderUpdateQueueName, ExchangeName, "PayementOrder");
 
                     byte[] body = GetMessageAsByteArray(baseMessage);
-                    channel.BasicPublish(exchange: ExchangeName, "", basicProperties: null, body: body);
+                    channel.BasicPublish(exchange: ExchangeName, "PayementEmail", basicProperties: null, body: body); 
+                    channel.BasicPublish(exchange: ExchangeName, "PayementOrder", basicProperties: null, body: body);
                 }
             }
             catch (Exception ex)
